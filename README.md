@@ -16,17 +16,16 @@ staying correct when the network can't be trusted:
 
 ## Status
 
-The three core pieces exist as a tested Java library, wired to nothing yet:
-
 - `dev.gatekeeper.ticket` — rotating TOTP tokens, cross-checked against the RFC 6238 and
   RFC 4648 test vectors.
 - `dev.gatekeeper.gate` — offline scan validation and duplicate detection at a single gate.
 - `dev.gatekeeper.reconcile` — a CRDT-based merge of multiple gates' scan logs that flags
   a ticket accepted at more than one gate and picks a winner.
+- `dev.gatekeeper.api` — the HTTP layer: gates sync their logs in, staff can see the
+  reconciled state.
 
 Design rationale and the trade-offs behind each is in [docs/design.md](docs/design.md).
-Not yet built: an HTTP layer for gates to actually sync, persistence, and a
-load/partition simulation.
+Not yet built: persistence (everything is in-memory) and a load/partition simulation.
 
 ## Run
 
@@ -36,13 +35,30 @@ curl localhost:8080/healthz
 mvn test
 ```
 
+## API
+
+`POST /gates/{gateId}/sync` — a gate delivers its scan log (or a batch/retry of it).
+
+```bash
+curl -X POST localhost:8080/gates/gate-1/sync -H 'Content-Type: application/json' -d '{
+  "scans": [{"ticketId": "t-100", "scannedAt": "2026-09-26T18:00:00Z", "accepted": true}]
+}'
+```
+
+`gateId` comes from the URL, never the request body, so a gate can only ever report scans
+under its own identity. Re-syncing an already-seen scan (e.g. after a dropped connection)
+is a no-op, not a double-count.
+
+`GET /reconciliation` — the full picture: every ticket accepted anywhere, and how many
+conflicts need review. `GET /reconciliation/conflicts` narrows that to just the conflicts.
+
 ## Roadmap
 
 - [x] Project skeleton, health endpoint
 - [x] Ticket + rotating token model (TOTP-style secret per ticket)
 - [x] Gate-side offline validation against a signed token, no network required
 - [x] Conflict detection and reconciliation: same ticket accepted at two gates before sync, earliest scan wins, the rest are flagged with an audit trail (see `Reconciler`)
-- [ ] Sync protocol: an HTTP endpoint for gates to upload their scan log when back online
+- [x] Sync protocol: `POST /gates/{gateId}/sync` plus `GET /reconciliation(/conflicts)`
 - [ ] Load/partition simulation: gates going offline, then reconnecting, under load
 - [ ] Metrics
 

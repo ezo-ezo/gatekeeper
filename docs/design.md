@@ -62,6 +62,29 @@ make "who was first" meaningless would already be failing ordinary TOTP validati
 bounded to within roughly a TOTP window of correct. That doesn't make the policy exact, but
 it's not arbitrary either.
 
+## Sync HTTP layer (phase 5)
+
+`POST /gates/{gateId}/sync` wraps `Reconciler.ingest` with no change to its semantics: the
+same no-op-on-resync and order-independence properties hold, now demonstrated over real
+HTTP against a real server, not just in-process.
+
+One deliberate choice: **`gateId` comes only from the URL path**, never from the request
+body. The request DTO (`ScanRecordRequest`) has no `gateId` field at all, so there is no way
+for a client to claim scans on behalf of a gate other than the one in the URL it's calling.
+This matters because reconciliation's correctness depends on scans being attributed to the
+gate that actually made them — a client that could lie about its `gateId` could manufacture
+a fake conflict, or worse, attribute its own duplicate-scan attempt to a different gate to
+dodge detection.
+
+**Testing choice:** the controllers are tested with `MockMvc.standaloneSetup(...)` rather
+than `@SpringBootTest`, constructing a fresh `Reconciler` per test method. A `Reconciler`
+managed as a Spring singleton bean would be shared across test methods under Spring's
+context caching, silently leaking scan state between tests that have nothing to do with each
+other. `standaloneSetup` sidesteps that entirely and boots in milliseconds instead of
+seconds, at the cost of not testing the actual Spring wiring — `HealthControllerTest`'s
+`@SpringBootTest` continues to cover that the whole context, including the new controllers
+and the `Reconciler` bean, actually boots together.
+
 ## Not done
 
 - **HTTP sync endpoint.** `Reconciler` is a pure library right now; a gate has no way to
