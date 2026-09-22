@@ -1,0 +1,13 @@
+target/
+*.class
+
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+.env
+.env.*
+
+hs_err_pid*.log
+replay_pid*.log
