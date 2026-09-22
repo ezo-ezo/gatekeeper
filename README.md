@@ -31,7 +31,7 @@ mvn test
 
 - [x] Project skeleton, health endpoint
 - [x] Ticket + rotating token model (TOTP-style secret per ticket)
-- [ ] Gate-side offline validation against a signed token, no network required
+- [x] Gate-side offline validation against a signed token, no network required
 - [ ] Sync protocol: gates upload their scan log when back online
 - [ ] Conflict detection: same ticket scanned at two gates before sync
 - [ ] Reconciliation policy (first valid scan wins, flag the rest) with an audit trail
