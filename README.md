@@ -30,7 +30,7 @@ mvn test
 ## Roadmap
 
 - [x] Project skeleton, health endpoint
-- [ ] Ticket + rotating token model (TOTP-style secret per ticket)
+- [x] Ticket + rotating token model (TOTP-style secret per ticket)
 - [ ] Gate-side offline validation against a signed token, no network required
 - [ ] Sync protocol: gates upload their scan log when back online
 - [ ] Conflict detection: same ticket scanned at two gates before sync
