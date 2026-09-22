@@ -16,8 +16,17 @@ staying correct when the network can't be trusted:
 
 ## Status
 
-Early scaffold: a running Spring Boot service with a health endpoint. The token rotation,
-offline validation and reconciliation logic have not been built yet.
+The three core pieces exist as a tested Java library, wired to nothing yet:
+
+- `dev.gatekeeper.ticket` — rotating TOTP tokens, cross-checked against the RFC 6238 and
+  RFC 4648 test vectors.
+- `dev.gatekeeper.gate` — offline scan validation and duplicate detection at a single gate.
+- `dev.gatekeeper.reconcile` — a CRDT-based merge of multiple gates' scan logs that flags
+  a ticket accepted at more than one gate and picks a winner.
+
+Design rationale and the trade-offs behind each is in [docs/design.md](docs/design.md).
+Not yet built: an HTTP layer for gates to actually sync, persistence, and a
+load/partition simulation.
 
 ## Run
 
@@ -32,11 +41,10 @@ mvn test
 - [x] Project skeleton, health endpoint
 - [x] Ticket + rotating token model (TOTP-style secret per ticket)
 - [x] Gate-side offline validation against a signed token, no network required
-- [ ] Sync protocol: gates upload their scan log when back online
-- [ ] Conflict detection: same ticket scanned at two gates before sync
-- [ ] Reconciliation policy (first valid scan wins, flag the rest) with an audit trail
+- [x] Conflict detection and reconciliation: same ticket accepted at two gates before sync, earliest scan wins, the rest are flagged with an audit trail (see `Reconciler`)
+- [ ] Sync protocol: an HTTP endpoint for gates to upload their scan log when back online
 - [ ] Load/partition simulation: gates going offline, then reconnecting, under load
-- [ ] Metrics and a short design write-up
+- [ ] Metrics
 
 ## How AI was used
 
