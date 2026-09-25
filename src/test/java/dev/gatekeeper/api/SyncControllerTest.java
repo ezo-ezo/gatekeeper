@@ -3,7 +3,8 @@ package dev.gatekeeper.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import dev.gatekeeper.reconcile.Reconciler;
+import dev.gatekeeper.scanlog.InMemoryScanLog;
+import dev.gatekeeper.scanlog.ScanLog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -19,9 +20,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Exercises the HTTP layer with {@code standaloneSetup} rather than a full
- * Spring context: each test gets its own freshly constructed {@link
- * Reconciler}, so nothing leaks between test methods the way a shared
- * Spring-managed singleton bean would if the context were cached and reused.
+ * Spring context, against {@link InMemoryScanLog}: each test gets its own
+ * freshly constructed one, so nothing leaks between test methods the way a
+ * shared Spring-managed singleton bean would if the context were cached and
+ * reused. The real app wires the JPA-backed implementation instead
+ * (see {@code dev.gatekeeper.persistence.JpaScanLog}); these controllers
+ * don't know or care which one they're given.
  */
 class SyncControllerTest {
 
@@ -29,13 +33,13 @@ class SyncControllerTest {
 
     @BeforeEach
     void setUp() {
-        Reconciler reconciler = new Reconciler();
+        ScanLog scanLog = new InMemoryScanLog();
         ObjectMapper mapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new SyncController(reconciler), new ReconciliationController(reconciler))
+                .standaloneSetup(new SyncController(scanLog), new ReconciliationController(scanLog))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
                 .build();
@@ -157,6 +161,23 @@ class SyncControllerTest {
                 .andExpect(jsonPath("$.decisions", hasSize(0)))
                 .andExpect(jsonPath("$.totalScansConsidered").value(0))
                 .andExpect(jsonPath("$.conflictCount").value(0));
+    }
+
+    @Test
+    void summaryReportsJustTheTotals() throws Exception {
+        mockMvc.perform(post("/gates/gate-1/sync").contentType(MediaType.APPLICATION_JSON)
+                .content(scanJson("t1", "2026-09-26T18:00:00Z", true)));
+        mockMvc.perform(post("/gates/gate-2/sync").contentType(MediaType.APPLICATION_JSON)
+                .content(scanJson("t1", "2026-09-26T18:00:05Z", true)));
+        mockMvc.perform(post("/gates/gate-2/sync").contentType(MediaType.APPLICATION_JSON)
+                .content(scanJson("t2", "2026-09-26T18:00:05Z", false)));
+
+        mockMvc.perform(get("/reconciliation/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalScansConsidered").value(3))
+                .andExpect(jsonPath("$.acceptedTickets").value(1)) // t2 was only ever rejected
+                .andExpect(jsonPath("$.conflictCount").value(1))
+                .andExpect(jsonPath("$.decisions").doesNotExist());
     }
 
     @Test

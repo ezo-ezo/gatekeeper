@@ -1,0 +1,23 @@
+# NOTE: this file SHADOWS src/main/resources/application.yml during tests rather
+# than merging with it (same filename, test-classes comes first on the classpath),
+# so anything the tests need from the main config has to be repeated here.
+#
+# Tests never touch the dev database file, and each Spring context gets its own
+# uniquely named in-memory database so cached contexts cannot see each other's data.
+spring:
+  datasource:
+    url: jdbc:h2:mem:gatekeeper-${random.uuid};DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

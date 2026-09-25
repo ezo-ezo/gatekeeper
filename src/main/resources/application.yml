@@ -4,3 +4,37 @@ server:
 spring:
   application:
     name: gatekeeper
+
+  # File-mode H2: data survives a restart, unlike an in-memory database.
+  # AUTO_SERVER lets a second process (e.g. the H2 console) connect to the
+  # same file concurrently, useful for inspecting it while the app is running.
+  datasource:
+    url: jdbc:h2:file:./data/gatekeeper;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      # A real deployment would use versioned migrations (Flyway/Liquibase);
+      # auto-updating the schema from entities is a demo-scale shortcut,
+      # called out here rather than left implicit. See docs/design.md.
+      ddl-auto: update
+    # Closes the JPA session at the end of each request instead of keeping it
+    # open through view rendering, which this API has none of anyway; set
+    # explicitly to avoid relying on a default that differs across Spring
+    # Boot versions and to silence the framework's own warning about it.
+    open-in-view: false
+
+# Metrics for Prometheus at /actuator/prometheus. This endpoint is unauthenticated,
+# like the rest of the API; a real deployment would put both behind a gateway.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    distribution:
+      # Bucketed request latency, so p99 can be computed from a scrape.
+      percentiles-histogram:
+        http.server.requests: true
